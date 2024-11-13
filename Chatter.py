@@ -4,6 +4,7 @@ import threading
 import curses
 from curses import wrapper
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -19,7 +20,7 @@ class Encrypt:
 
     def asymmetric_encrypt(self, plaintext):
         return self.receiver_public_key.encrypt(
-            plaintext,
+            bytes(plaintext, 'utf-8'),
             padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA256()),
                 algorithm=hashes.SHA256(),
@@ -35,10 +36,16 @@ class Encrypt:
                 algorithm=hashes.SHA256(),
                 label=None
             )
-        )
+        ).decode('utf-8')
 
     def serialize(self, key):
-        return key
+        return key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.PKCS1
+        )
+
+    def deserialize(self, key_bytes):
+        return serialization.load_pem_public_key(key_bytes)
 
 
 class Window:
@@ -104,15 +111,15 @@ class Client:
                 connection.close()
             window.printToOutput(f'{self.host} (You)', message)
             # add encryption method call here
-            # message = self.e.asymmetric_encrypt(message)
-            connection.send(message.encode('utf-8'))
+            message = self.e.asymmetric_encrypt(message)
+            connection.send(message)
 
     def receiveMessage(self, connection):
         while True:
             try:
-                message = connection.recv(1042).decode('utf-8')
+                message = connection.recv(1042)
                 # add decryption method call here
-                # message = self.e.asymmetric_decrypt(message)
+                message = self.e.asymmetric_decrypt(message)
                 if not message:
                     break
                 if message == 'exit':
@@ -125,6 +132,10 @@ class Client:
                 window.printToOutput(self.host, 'Connection closed.')
                 connection.close()
 
+    def exchangeKeys(self, connection):
+        connection.send(self.e.serialize(self.e.myPubKey))
+        self.e.receiver_public_key = self.e.deserialize(connection.recv(1042))
+
     def openServer(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind(('0.0.0.0', 6006))
@@ -136,6 +147,7 @@ class Client:
             connection, addr = server.accept()
             print(f'Connection accepted from {addr}.')
             # exchange keys here
+            self.exchangeKeys(connection)
             # clear windows first
             window.outputWindow.clear()
             window.inputWindow.clear()
@@ -149,6 +161,7 @@ class Client:
         myClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         myClientSocket.connect(('localhost', 6006))
         # exchange keys here
+        self.exchangeKeys(myClientSocket)
         # clear windows first
         window.outputWindow.clear()
         window.inputWindow.clear()
@@ -160,7 +173,6 @@ class Client:
 
 
 window = Window()
-publicKeys = {}
 def main():
     Client()
 

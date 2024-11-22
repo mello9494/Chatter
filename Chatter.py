@@ -158,8 +158,9 @@ class Client:
             threading.Thread(target=self.receiveMessage, args=(connection,)).start()
 
     def searchForUser(self):
+        host = window.printRealTime('Enter the IP address you would like to connect to: ')
         myClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        myClientSocket.connect(('localhost', 6006))
+        myClientSocket.connect((host, 6006))
         # exchange keys here
         self.exchangeKeys(myClientSocket)
         # clear windows first

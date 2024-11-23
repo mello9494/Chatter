@@ -10,14 +10,17 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 class Encrypt:
     def __init__(self):
+        # create the key objects for the user
         self.myPrivateKey, self.myPubKey = self.genKeys()
         self.receiver_public_key = None
 
+    # generate a public and private key for the user
     def genKeys(self):
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         public_key = private_key.public_key()
         return private_key, public_key
 
+    # encrypt the message with the receiver's public key
     def asymmetric_encrypt(self, plaintext):
         return self.receiver_public_key.encrypt(
             bytes(plaintext, 'utf-8'),
@@ -28,6 +31,7 @@ class Encrypt:
             )
         )
 
+    # decrypt the message with the sender's private key
     def asymmetric_decrypt(self, ciphertext):
         return self.myPrivateKey.decrypt(
             ciphertext,
@@ -38,12 +42,14 @@ class Encrypt:
             )
         ).decode('utf-8')
 
+    # convert from key object to bytes
     def serialize(self, key):
         return key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.PKCS1
         )
 
+    # convert from bytes to key object
     def deserialize(self, key_bytes):
         return serialization.load_pem_public_key(key_bytes)
 
@@ -58,17 +64,20 @@ class Window:
     def __init__(self):
         self.window = wrapper(self.makeWindow)
 
+    # make the input and output boxed on the window
     def makeWindow(self, stdscr):
         stdscr.clear()
         self.winHeight, self.winWidth = stdscr.getmaxyx()
         self.outputWindow = curses.newwin(self.winHeight - 5, self.winWidth, 0, 0)
         self.inputWindow = curses.newwin(3, self.winWidth, self.winHeight - 4, 0)
 
+    # prints to the output box
     def printToOutput(self, sender, message):
         self.outputWindow.addstr(self.outputRow, 0, f'{sender}: {message}\n')
         self.outputWindow.refresh()
         self.outputRow += 1
 
+    # print the user input in the input box
     def printRealTime(self, marker='> '):
         message = []
         while True:
@@ -92,7 +101,9 @@ class Window:
 
 
 class Client:
+    # create a
     host = socket.gethostbyname(socket.gethostname())
+    receiverAddress = ''
     e = Encrypt()
 
     def __init__(self):
@@ -117,17 +128,19 @@ class Client:
     def receiveMessage(self, connection):
         while True:
             try:
+                # receive the message
                 message = connection.recv(1042)
-                # add decryption method call here
+                # decrypt the message
                 message = self.e.asymmetric_decrypt(message)
                 if not message:
                     break
                 if message == 'exit':
                     window.printToOutput('', 'Connection terminated.')
                     connection.close()
+                    exit(1)
 
                 # send message to window
-                window.printToOutput(self.host, message)
+                window.printToOutput(self.receiverAddress, message)
             except ():
                 window.printToOutput(self.host, 'Connection closed.')
                 connection.close()
@@ -145,7 +158,7 @@ class Client:
         while True:
             # accept incoming connections
             connection, addr = server.accept()
-            print(f'Connection accepted from {addr}.')
+            self.receiverAddress = addr[0]
             # exchange keys here
             self.exchangeKeys(connection)
             # clear windows first
@@ -161,6 +174,7 @@ class Client:
         host = window.printRealTime('Enter the IP address you would like to connect to: ')
         myClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         myClientSocket.connect((host, 6006))
+        self.receiverAddress = host
         # exchange keys here
         self.exchangeKeys(myClientSocket)
         # clear windows first

@@ -16,7 +16,7 @@ Usage: python Chatter.py
 + `curses` - This library is used to manipulate the terminal, allowing a user to provide input while displaying
 output simultaneously.
 + `threading` - This library allows a program to be split into multiple processes, for example, taking input while
-output at the same time.
+outputing at the same time.
 + `socket` - Allows for low-level network connections.
 + `cryptography` - The cryptography library is a powerful library that includes multiple forms of encryption
 and decryption.

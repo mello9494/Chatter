@@ -101,10 +101,9 @@ class Window:
 
 
 class Client:
-    # create a
     host = socket.gethostbyname(socket.gethostname())
     receiverAddress = ''
-    e = Encrypt()
+    e = Encrypt()  # generate keys for user
 
     def __init__(self):
         serverOrUser = int(window.printRealTime('Would you like to run as a server (1) or as a user (2): '))
@@ -115,14 +114,17 @@ class Client:
 
     def sendMessage(self, connection):
         while True:
+            # get user input
             message = window.printRealTime('(You) > ')
             if message == 'exit':
                 window.printToOutput('', 'Connection terminated.')
                 connection.send(message.encode('utf-8'))
                 connection.close()
+            # print the user input to the screen
             window.printToOutput(f'{self.host} (You)', message)
-            # add encryption method call here
+            # encrypt the message with the receiver's public key
             message = self.e.asymmetric_encrypt(message)
+            # send message
             connection.send(message)
 
     def receiveMessage(self, connection):
@@ -146,10 +148,12 @@ class Client:
                 connection.close()
 
     def exchangeKeys(self, connection):
+        # the sender and receiver exchange public keys here
         connection.send(self.e.serialize(self.e.myPubKey))
         self.e.receiver_public_key = self.e.deserialize(connection.recv(1042))
 
     def openServer(self):
+        # open receiver to accept any incoming connection on port 6006
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind(('0.0.0.0', 6006))
         server.listen(1)
@@ -171,6 +175,7 @@ class Client:
             threading.Thread(target=self.receiveMessage, args=(connection,)).start()
 
     def searchForUser(self):
+        # search for an open connection on the specified IP
         host = window.printRealTime('Enter the IP address you would like to connect to: ')
         myClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         myClientSocket.connect((host, 6006))
@@ -187,11 +192,11 @@ class Client:
         threading.Thread(target=self.receiveMessage, args=(myClientSocket,)).start()
 
 
-window = Window()
 def main():
     Client()
 
 
 if __name__ == '__main__':
+    window = Window()
     main()
 
